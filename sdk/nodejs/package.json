@@ -1,0 +1,11 @@
+{
+  "name": "@pose/pulumi-npm-oidc-verify",
+  "version": "0.0.0-placeholder",
+  "description": "Disposable package for Pulumi npm OIDC publish verification",
+  "license": "Apache-2.0",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "package.json"
+  ]
+}

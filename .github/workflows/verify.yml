@@ -1,0 +1,108 @@
+name: Verify Pulumi npm OIDC publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      pulumi_repo:
+        description: Repository containing the Pulumi source to build
+        required: true
+        default: pulumi/pulumi
+      pulumi_ref:
+        description: Branch, tag, or SHA containing the publishToNPM OIDC change
+        required: true
+      package_name:
+        description: npm package name configured for trusted publishing
+        required: true
+        default: '@pose/pulumi-npm-oidc-verify'
+      package_version:
+        description: New, unpublished npm package version to publish
+        required: true
+
+permissions:
+  contents: read
+  id-token: write
+
+run-name: Verify npm OIDC publish for ${{ inputs.package_name }}@${{ inputs.package_version }} from ${{ inputs.pulumi_ref }}
+
+jobs:
+  publish:
+    name: Build Pulumi and publish test package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out verification fixture
+        uses: actions/checkout@v4
+        with:
+          path: fixture
+
+      - name: Check out Pulumi source
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.pulumi_repo }}
+          ref: ${{ inputs.pulumi_ref }}
+          path: pulumi
+
+      - name: Install mise
+        run: |
+          set -euo pipefail
+          curl https://mise.run | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Build Pulumi binary from selected ref
+        working-directory: pulumi
+        run: |
+          set -euo pipefail
+          mise trust --yes
+          mise install
+          eval "$(mise env)"
+          make bin/pulumi
+          ./bin/pulumi version
+
+      - name: Set up Node for npm registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install npm version used for trusted publishing
+        run: |
+          set -euo pipefail
+          npm install -g npm@11.19.0
+          npm --version
+          node --version
+
+      - name: Assert trusted publishing environment
+        run: |
+          set -euo pipefail
+          test "${RUNNER_ENVIRONMENT:-}" = "github-hosted"
+          test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
+          test -z "${NODE_AUTH_TOKEN:-}"
+          node -e 'const semver = process.env.npm_config_user_agent.match(/npm\/(\d+\.\d+\.\d+)/)[1].split(".").map(Number); if (semver[0] < 11 || (semver[0] === 11 && semver[1] < 5) || (semver[0] === 11 && semver[1] === 5 && semver[2] < 1)) process.exit(1)'
+
+      - name: Prepare package metadata
+        working-directory: fixture/sdk/nodejs
+        run: |
+          set -euo pipefail
+          npm pkg set name="${{ inputs.package_name }}" version="${{ inputs.package_version }}" private=false
+          cat package.json
+
+      - name: Publish with Pulumi package publish-sdk
+        working-directory: fixture
+        env:
+          NODE_AUTH_TOKEN: ''
+        run: |
+          set -euo pipefail
+          ../pulumi/bin/pulumi package publish-sdk nodejs --path sdk/nodejs
+
+      - name: Read npm package metadata
+        if: always()
+        working-directory: fixture
+        run: |
+          set -euo pipefail
+          for i in 1 2 3 4 5; do
+            if npm view "${{ inputs.package_name }}@${{ inputs.package_version }}" --json > npm-view.json; then
+              cat npm-view.json
+              exit 0
+            fi
+            sleep 15
+          done
+          npm view "${{ inputs.package_name }}@${{ inputs.package_version }}" --json

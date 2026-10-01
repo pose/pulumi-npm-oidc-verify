@@ -54,7 +54,8 @@ jobs:
           mise trust --yes
           mise install
           eval "$(mise env)"
-          make bin/pulumi
+          mkdir -p bin
+          go build -C pkg             -o ../bin/pulumi             -ldflags "-X github.com/pulumi/pulumi/sdk/v3/go/common/version.Version=dev"             github.com/pulumi/pulumi/pkg/v3/cmd/pulumi
           ./bin/pulumi version
 
       - name: Set up Node for npm registry

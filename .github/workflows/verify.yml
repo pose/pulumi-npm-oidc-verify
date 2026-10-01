@@ -76,7 +76,8 @@ jobs:
           test "${RUNNER_ENVIRONMENT:-}" = "github-hosted"
           test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
           test -z "${NODE_AUTH_TOKEN:-}"
-          node -e 'const semver = process.env.npm_config_user_agent.match(/npm\/(\d+\.\d+\.\d+)/)[1].split(".").map(Number); if (semver[0] < 11 || (semver[0] === 11 && semver[1] < 5) || (semver[0] === 11 && semver[1] === 5 && semver[2] < 1)) process.exit(1)'
+          npm_version="$(npm --version)"
+          node -e 'const v = process.argv[1].split(".").map(Number); if (v[0] < 11 || (v[0] === 11 && v[1] < 5) || (v[0] === 11 && v[1] === 5 && v[2] < 1)) process.exit(1)' "$npm_version"
 
       - name: Prepare package metadata
         working-directory: fixture/sdk/nodejs

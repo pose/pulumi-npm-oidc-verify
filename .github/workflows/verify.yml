@@ -93,7 +93,8 @@ jobs:
         working-directory: fixture/sdk/nodejs
         run: |
           set -euo pipefail
-          npm pkg set name="${{ inputs.package_name }}" version="${{ inputs.package_version }}" private=false
+          npm pkg set name="${{ inputs.package_name }}" version="${{ inputs.package_version }}"
+          npm pkg delete private
           cat package.json
 
       - name: Publish with Pulumi package publish-sdk

@@ -95,7 +95,7 @@ jobs:
           NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
-          ../pulumi/bin/pulumi package publish-sdk nodejs --path sdk/nodejs
+          ../pulumi/bin/pulumi package publish-sdk nodejs --path ./sdk/nodejs
 
       - name: Read npm package metadata
         if: always()

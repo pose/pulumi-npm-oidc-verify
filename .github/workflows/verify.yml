@@ -72,6 +72,8 @@ jobs:
           node --version
 
       - name: Assert trusted publishing environment
+        env:
+          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           test "${RUNNER_ENVIRONMENT:-}" = "github-hosted"

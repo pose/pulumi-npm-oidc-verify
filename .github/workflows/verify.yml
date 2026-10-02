@@ -95,6 +95,8 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install npm version used for trusted publishing
+        env:
+          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           npm install -g npm@11.19.0
@@ -102,6 +104,8 @@ jobs:
           node --version
 
       - name: Assert trusted publishing environment
+        env:
+          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           test "${RUNNER_ENVIRONMENT:-}" = "github-hosted"
@@ -119,6 +123,8 @@ jobs:
 
       - name: Prepare package metadata
         working-directory: fixture/sdk/nodejs
+        env:
+          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           npm pkg set name="${{ inputs.package_name }}" version="${{ steps.version.outputs.version }}"
@@ -127,6 +133,8 @@ jobs:
 
       - name: Publish with Pulumi package publish-sdk
         working-directory: fixture
+        env:
+          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           echo "Publishing ${{ inputs.package_name }}@${{ steps.version.outputs.version }}"
@@ -147,6 +155,8 @@ jobs:
       - name: Read npm package metadata
         if: success()
         working-directory: fixture
+        env:
+          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           package="${{ inputs.package_name }}@${{ steps.version.outputs.version }}"

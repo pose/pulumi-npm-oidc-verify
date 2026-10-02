@@ -1,4 +1,4 @@
-name: Verify Pulumi npm OIDC publish
+name: Demo Pulumi npm trusted publishing
 
 on:
   workflow_dispatch:
@@ -8,21 +8,23 @@ on:
         required: true
         default: pulumi/pulumi
       pulumi_ref:
-        description: Branch, tag, or SHA containing the publishToNPM OIDC change
+        description: Branch, tag, or SHA containing the publishToNPM trusted-publishing change
         required: true
+        default: apose/pvd-4214-migrate-provider-npm-publishing-to-trusted-publishing-oidc
       package_name:
         description: npm package name configured for trusted publishing
         required: true
         default: '@pose/pulumi-npm-oidc-verify'
       package_version:
-        description: New, unpublished npm package version to publish
-        required: true
+        description: New npm package version to publish. Leave empty to auto-generate a demo prerelease version.
+        required: false
+        default: ''
 
 permissions:
   contents: read
   id-token: write
 
-run-name: Verify npm OIDC publish for ${{ inputs.package_name }}@${{ inputs.package_version }} from ${{ inputs.pulumi_ref }}
+run-name: Demo npm trusted publishing from ${{ inputs.pulumi_ref }}
 
 jobs:
   publish:
@@ -33,6 +35,18 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: fixture
+
+      - name: Select package version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ inputs.package_version }}'
+          if [[ -z "$version" ]]; then
+            version="0.0.2-demo.${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Package: ${{ inputs.package_name }}@$version" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check out Pulumi source
         uses: actions/checkout@v4
@@ -62,7 +76,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p bin
-          go build -C pkg             -o ../bin/pulumi             -ldflags "-X github.com/pulumi/pulumi/sdk/v3/go/common/version.Version=dev"             github.com/pulumi/pulumi/pkg/v3/cmd/pulumi
+          go build -C pkg \
+            -o ../bin/pulumi \
+            -ldflags "-X github.com/pulumi/pulumi/sdk/v3/go/common/version.Version=dev" \
+            github.com/pulumi/pulumi/pkg/v3/cmd/pulumi
           ./bin/pulumi version
 
       - name: Set up Node for npm registry
@@ -87,13 +104,20 @@ jobs:
           test -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}"
           test -z "${NODE_AUTH_TOKEN:-}"
           npm_version="$(npm --version)"
-          node -e 'const v = process.argv[1].split(".").map(Number); if (v[0] < 11 || (v[0] === 11 && v[1] < 5) || (v[0] === 11 && v[1] === 5 && v[2] < 1)) process.exit(1)' "$npm_version"
+          node -e 'const [maj,min,patch] = process.argv[1].split(/[.-]/).map(Number); if (maj < 11 || (maj === 11 && min < 5) || (maj === 11 && min === 5 && patch < 1)) process.exit(1)' "$npm_version"
+          {
+            echo "### Trusted publishing environment"
+            echo "- GitHub-hosted runner: yes"
+            echo "- GitHub Actions OIDC request URL present: yes"
+            echo "- NODE_AUTH_TOKEN set in publish step: no"
+            echo "- npm version: $npm_version"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Prepare package metadata
         working-directory: fixture/sdk/nodejs
         run: |
           set -euo pipefail
-          npm pkg set name="${{ inputs.package_name }}" version="${{ inputs.package_version }}"
+          npm pkg set name="${{ inputs.package_name }}" version="${{ steps.version.outputs.version }}"
           npm pkg delete private
           cat package.json
 
@@ -104,17 +128,35 @@ jobs:
         run: |
           set -euo pipefail
           ../pulumi/bin/pulumi package publish-sdk nodejs --path ./sdk/nodejs
+          echo "Published ${{ inputs.package_name }}@${{ steps.version.outputs.version }} with NODE_AUTH_TOKEN unset" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Read npm package metadata
         if: always()
         working-directory: fixture
+        env:
+          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
-          for i in 1 2 3 4 5; do
-            if npm view "${{ inputs.package_name }}@${{ inputs.package_version }}" --json > npm-view.json; then
+          package="${{ inputs.package_name }}@${{ steps.version.outputs.version }}"
+          url="https://www.npmjs.com/package/${{ inputs.package_name }}/v/${{ steps.version.outputs.version }}"
+          echo "npm package URL: $url"
+          for i in $(seq 1 20); do
+            if npm view "$package" --json > npm-view.json; then
               cat npm-view.json
+              {
+                echo "### npm metadata"
+                echo "- Package metadata is visible"
+                echo "- URL: $url"
+              } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
-            sleep 15
+            echo "npm metadata not visible yet; npm may still be validating the version (attempt $i/20)"
+            sleep 30
           done
-          npm view "${{ inputs.package_name }}@${{ inputs.package_version }}" --json
+          {
+            echo "### npm metadata"
+            echo "- Publish succeeded, but npm metadata was still unavailable after retries"
+            echo "- npm may still show the version as Validating"
+            echo "- URL: $url"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning::npm metadata was still unavailable; publish may still be validating"

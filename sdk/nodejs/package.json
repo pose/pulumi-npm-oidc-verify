@@ -3,6 +3,10 @@
   "version": "0.0.0-placeholder",
   "description": "Disposable package for Pulumi npm OIDC publish verification",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pose/pulumi-npm-oidc-verify"
+  },
   "main": "index.js",
   "files": [
     "index.js",

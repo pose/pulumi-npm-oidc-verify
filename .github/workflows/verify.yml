@@ -30,6 +30,8 @@ jobs:
   publish:
     name: Build Pulumi and publish test package
     runs-on: ubuntu-latest
+    env:
+      NODE_AUTH_TOKEN: ''
     steps:
       - name: Check out verification fixture
         uses: actions/checkout@v4
@@ -100,8 +102,6 @@ jobs:
           node --version
 
       - name: Assert trusted publishing environment
-        env:
-          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           test "${RUNNER_ENVIRONMENT:-}" = "github-hosted"
@@ -127,8 +127,6 @@ jobs:
 
       - name: Publish with Pulumi package publish-sdk
         working-directory: fixture
-        env:
-          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           echo "Publishing ${{ inputs.package_name }}@${{ steps.version.outputs.version }}"
@@ -149,8 +147,6 @@ jobs:
       - name: Read npm package metadata
         if: success()
         working-directory: fixture
-        env:
-          NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
           package="${{ inputs.package_name }}@${{ steps.version.outputs.version }}"

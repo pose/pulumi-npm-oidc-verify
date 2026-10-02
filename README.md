@@ -42,7 +42,7 @@ Recommended inputs:
 - `pulumi_repo`: `pulumi/pulumi`
 - `pulumi_ref`: `apose/pvd-4214-migrate-provider-npm-publishing-to-trusted-publishing-oidc`
 - `package_name`: `@pose/pulumi-npm-oidc-verify`
-- `package_version`: leave empty to auto-generate a unique version like `0.0.2-demo.<run_number>`
+- `package_version`: leave empty to auto-generate a unique version like `0.0.2-demo.<run_id>.<run_attempt>`
 
 Or run from the CLI:
 

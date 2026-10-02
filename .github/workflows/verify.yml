@@ -43,7 +43,7 @@ jobs:
           set -euo pipefail
           version='${{ inputs.package_version }}'
           if [[ -z "$version" ]]; then
-            version="0.0.2-demo.${GITHUB_RUN_NUMBER}"
+            version="0.0.2-demo.${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT}"
           fi
           package_url="https://www.npmjs.com/package/${{ inputs.package_name }}/v/$version"
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -131,11 +131,23 @@ jobs:
           NODE_AUTH_TOKEN: ''
         run: |
           set -euo pipefail
+          echo "Publishing ${{ inputs.package_name }}@${{ steps.version.outputs.version }}"
+          echo "npm package URL: ${{ steps.version.outputs.package_url }}"
           ../pulumi/bin/pulumi package publish-sdk nodejs --path ./sdk/nodejs
           echo "Published ${{ inputs.package_name }}@${{ steps.version.outputs.version }} with NODE_AUTH_TOKEN unset" >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Report publish failure
+        if: failure()
+        run: |
+          {
+            echo "### Publish failed"
+            echo "- Package: ${{ inputs.package_name }}@${{ steps.version.outputs.version }}"
+            echo "- URL: ${{ steps.version.outputs.package_url }}"
+            echo "- NODE_AUTH_TOKEN was intentionally unset so this exercises npm trusted publishing/OIDC."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Read npm package metadata
-        if: always()
+        if: success()
         working-directory: fixture
         env:
           NODE_AUTH_TOKEN: ''
